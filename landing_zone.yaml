@@ -1,0 +1,498 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  LatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+
+  LatestConfigMgmtAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+
+  VPCCIDR:
+    Type: String
+    Default: 10.0.0.0/16
+    Description: Default VPC
+
+  PrivateSubnet1Cidr:
+    Type: String
+    Default: 10.0.0.0/19
+    Description: Private
+
+  PrivateSubnet1AvailabilityZ:
+    Description: The availability zone which will be assigned to this subnet
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: eu-west-2a
+
+  PublicSubnet1Cidr:
+    Type: String
+    Default: 10.0.32.0/19
+    Description: Public
+
+  PublicSubnet1AvailabilityZ:
+    Description: The availability zone which will be assigned to this subnet
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: eu-west-2a
+
+  PrivateSubnet2Cidr:
+    Type: String
+    Default: 10.0.64.0/19
+    Description: Private
+
+  PrivateSubnet2AvailabilityZ:
+    Description: The availability zone which will be assigned to this subnet
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: eu-west-2b
+
+  PublicSubnet2Cidr:
+    Type: String
+    Default: 10.0.96.0/19
+    Description: Public
+
+  PublicSubnet2AvailabilityZ:
+    Description: The availability zone which will be assigned to this subnet
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: eu-west-2b
+
+  PrivateSubnet3Cidr:
+    Type: String
+    Default: 10.0.128.0/19
+    Description: Private
+
+  PrivateSubnet3AvailabilityZ:
+    Description: The availability zone which will be assigned to this subnet
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: eu-west-2c
+
+  PublicSubnet3Cidr:
+    Type: String
+    Default: 10.0.160.0/19
+    Description: Public
+
+  PublicSubnet3AvailabilityZ:
+    Description: The availability zone which will be assigned to this subnet
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: eu-west-2c
+
+  SecurityGroupIngressIP:
+    Type: String
+    Default: 185.100.71.242/32
+    AllowedValues: [185.100.71.242/32, 95.147.129.188/32]
+    Description: This will be applied to Mgmt SG Group therefore please update IP.
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VPCCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: default
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PrivateSubnet1Cidr
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Ref PrivateSubnet1AvailabilityZ
+      Tags:
+        - Key: Name
+          Value: PrivateSubnet1
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PublicSubnet1Cidr
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Ref PublicSubnet1AvailabilityZ
+      Tags:
+        - Key: Name
+          Value: PublicSubnet1
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PrivateSubnet2Cidr
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Ref PrivateSubnet2AvailabilityZ
+      Tags:
+        - Key: Name
+          Value: PrivateSubnet2
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PublicSubnet2Cidr
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Ref PublicSubnet2AvailabilityZ
+      Tags:
+        - Key: Name
+          Value: PublicSubnet2
+
+  PrivateSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PrivateSubnet3Cidr
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Ref PrivateSubnet3AvailabilityZ
+      Tags:
+        - Key: Name
+          Value: PrivateSubnet3
+
+  PublicSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PublicSubnet3Cidr
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Ref PublicSubnet3AvailabilityZ
+      Tags:
+        - Key: Name
+          Value: PublicSubnet3
+
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+
+  InternetRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref RouteTable
+
+  NATGatewayRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      NatGatewayId: !Ref NatGateway
+      DestinationCidrBlock: 0.0.0.0/0
+
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet1
+
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTable
+      SubnetId: !Ref PublicSubnet1
+
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet2
+
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTable
+      SubnetId: !Ref PublicSubnet2
+
+  PrivateSubnet3RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet3
+
+  PublicSubnet3RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTable
+      SubnetId: !Ref PublicSubnet3
+
+  SSHSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Allow SSH for Mgmt."
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        -
+          IpProtocol: tcp
+          FromPort: "22"
+          ToPort: "22"
+          CidrIp: !Ref SecurityGroupIngressIP
+      SecurityGroupEgress:
+        IpProtocol: -1
+        CidrIp: 0.0.0.0/0
+
+  InternalSecurityGroupSSH:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Allow internal SSH calls"
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        -
+          IpProtocol: tcp
+          FromPort: "22"
+          ToPort: "22"
+          SourceSecurityGroupId: !Ref SSHSecurityGroup
+      SecurityGroupEgress:
+        IpProtocol: -1
+        CidrIp: 0.0.0.0/0
+
+  WebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "HTTP Access"
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        -
+          IpProtocol: tcp
+          FromPort: "80"
+          ToPort: "80"
+          CidrIp: !Ref SecurityGroupIngressIP
+
+      SecurityGroupEgress:
+        IpProtocol: -1
+        CidrIp: 0.0.0.0/0
+
+  ConfigMgmtWebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "HTTP Access on port 8080"
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: "8080"
+          ToPort: "8080"
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+
+      SecurityGroupEgress:
+        IpProtocol: -1
+        CidrIp: 0.0.0.0/0
+
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "HTTP Access from CR IPs to the ALB"
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        -
+          IpProtocol: tcp
+          FromPort: "8080"
+          ToPort: "8080"
+          CidrIp: !Ref SecurityGroupIngressIP
+
+      SecurityGroupEgress:
+        IpProtocol: -1
+        CidrIp: 0.0.0.0/0
+
+  EFSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Traffic between EFS mounts and jenkins"
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        -
+          IpProtocol: tcp
+          FromPort: "1"
+          ToPort: "65535"
+          SourceSecurityGroupId: !Ref ConfigMgmtWebSecurityGroup
+
+      SecurityGroupEgress:
+        IpProtocol: -1
+        CidrIp: 0.0.0.0/0
+
+
+  BastionASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      MinSize: 1
+      MaxSize: 1
+      LaunchConfigurationName: !Ref BastionLaunchConfig
+      AvailabilityZones:
+        Fn::GetAZs:
+          Ref: "AWS::Region"
+      TargetGroupARNs:
+        - !Ref BastionTargetGroup
+      VPCZoneIdentifier:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+        - !Ref PublicSubnet3
+
+  BastionLaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      ImageId: !Ref LatestAmiId
+      InstanceType: t2.micro
+      KeyName: "phase1"
+      SecurityGroups:
+        - !Ref SSHSecurityGroup
+    DependsOn: VPC
+
+  BastionTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: /
+      HealthCheckPort: 80
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 20
+      HealthyThresholdCount: 5
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 2
+      VpcId: !Ref VPC
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId:
+        Fn::GetAtt:
+          - NATGatewayEIP
+          - AllocationId
+      SubnetId: !Ref PublicSubnet1
+
+  NATGatewayEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: !Ref VPC
+
+  ConfigMgmtASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      MinSize: 1
+      MaxSize: 1
+      LaunchConfigurationName: !Ref ConfigMgmtLaunchConfig
+      AvailabilityZones:
+        Fn::GetAZs:
+          Ref: "AWS::Region"
+      TargetGroupARNs:
+        - !Ref ConfigMgmtTargetGroup
+      VPCZoneIdentifier:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+        - !Ref PrivateSubnet3
+    UpdatePolicy:
+      AutoScalingRollingUpdate:
+        MaxBatchSize: 1
+
+  ConfigMgmtLaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      ImageId: !Ref LatestConfigMgmtAmiId
+      InstanceType: t2.micro
+      KeyName: "phase1"
+      SecurityGroups:
+        - !Ref InternalSecurityGroupSSH
+        - !Ref ConfigMgmtWebSecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash -x
+
+          touch /var/log/userdata.log
+          yum update -y | tee -a /var/log/userdata.log
+          yum install -y amazon-efs-utils java | tee -a /var/log/userdata.log
+          mkdir -p /var/lib/jenkins | tee -a /var/log/userdata.log
+          mount -t efs ${JenkinsEFS}:/ /var/lib/jenkins | tee -a /var/log/userdata.log
+          sudo wget -O /etc/yum.repos.d/jenkins.repo http://pkg.jenkins.io/redhat/jenkins.repo | tee -a /var/log/userdata.log
+          sudo rpm --import https://pkg.jenkins.io/redhat/jenkins.io.key | tee -a /var/log/userdata.log
+          sudo yum install jenkins -y | tee -a /var/log/userdata.log
+          sudo service jenkins start | tee -a /var/log/userdata.log
+    DependsOn: VPC
+
+  ConfigMgmtTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: /
+      HealthCheckPort: 8080
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 20
+      HealthyThresholdCount: 5
+      Port: 8080
+      Protocol: HTTP
+      UnhealthyThresholdCount: 2
+      VpcId: !Ref VPC
+
+  ConfigMgmtALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      IpAddressType: ipv4
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref WebSecurityGroup
+        - !Ref ALBSecurityGroup
+      Subnets:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+        - !Ref PublicSubnet3
+      Type: application
+
+  ConfigMgmtALBListenerPort8080:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ConfigMgmtTargetGroup
+      LoadBalancerArn: !Ref ConfigMgmtALB
+      Port: '8080'
+      Protocol: HTTP
+
+  ConfigMgmtALBListenerPort80:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - RedirectConfig:
+            Host: "#{host}"
+            Path: "/#{path}"
+            Port: 8080
+            Protocol: HTTP
+            Query: "#{query}"
+            StatusCode: HTTP_302
+          Type: redirect
+      LoadBalancerArn: !Ref ConfigMgmtALB
+      Port: 80
+      Protocol: HTTP
+
+  JenkinsEFS:
+    Type: AWS::EFS::FileSystem
+
+  JenkinsEFSMountPrivSub1:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref JenkinsEFS
+      SecurityGroups:
+        - !Ref EFSSecurityGroup
+      SubnetId: !Ref PrivateSubnet1
+
+  JenkinsEFSMountPrivSub2:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref JenkinsEFS
+      SecurityGroups:
+        - !Ref EFSSecurityGroup
+      SubnetId: !Ref PrivateSubnet2
+
+  JenkinsEFSMountPrivSub3:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref JenkinsEFS
+      SecurityGroups:
+        - !Ref EFSSecurityGroup
+      SubnetId: !Ref PrivateSubnet3
